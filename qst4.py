@@ -1,5 +1,6 @@
 import sqlite3
 from tkinter import *
+from tkinter import simpledialog
 import tkinter.ttk as ttk
 from tkinter import messagebox
 
@@ -56,6 +57,18 @@ class ConectarDB:
             self.con.commit()
             print('\n[!] Registro removido com sucesso [!]\n')
 
+    def atualizar_registro(self, rowid, nome, telefone, email):
+        """Função para atualizar um registro na tabela"""
+        try:
+            self.cur.execute('''UPDATE NomeDaTabela SET nome=?, telefone=?, email=? WHERE rowid=?''',(nome, telefone, email, rowid,))
+        except Exception as e:
+            print('\n[x] Falha ao atualizar registro [x]\n')
+            print('[x] Revertendo operação (rollback) %s [x]\n' % e)
+            self.con.rollback()
+        else:
+            self.con.commit()
+            print('\n[!] Registro atualizado com sucesso [!]\n')
+
 
 class Janela(Frame):
     """Classe da janela principal"""
@@ -107,6 +120,14 @@ class Janela(Frame):
         button_adicionar['command'] = self.adicionar_registro
         button_adicionar.grid(row=0, column=3, rowspan=2, padx=10)
 
+        button_buscar = Button(frame1, text='Buscar', bg='green', fg='white')
+        button_buscar['command'] = self.procurar_registro
+        button_buscar.grid(row=0, column=4, rowspan=2, padx=10)
+
+        button_buscar = Button(frame1, text='Atualizar', bg='green', fg='white')
+        button_buscar['command'] = self.atualizar_registro
+        button_buscar.grid(row=0, column=5, rowspan=2, padx=10)
+
         self.treeview = ttk.Treeview(frame2, columns=('Nome', 'Telefone', 'E-mail'))
         self.treeview.heading('#0', text='ID')
         self.treeview.heading('#1', text='Nome')
@@ -147,6 +168,37 @@ class Janela(Frame):
 
             self.treeview.delete(item_selecionado)
 
+    def procurar_registro(self):
+        """Função que procura por um registro na tabela"""
+        search = simpledialog.askstring("Buscar", "Digite o nome a ser pesquisado:")
+        if search:
+            found_items = []
+            for item in self.treeview.get_children():
+                if search.lower() in self.treeview.item(item)["values"][0].lower():
+                    found_items.append(item)
+            if found_items:
+                self.treeview.selection_set(found_items)
+                self.treeview.focus(found_items[0])
+                self.treeview.see(found_items[0])
+            else:
+                messagebox.showinfo("Buscar", "Nenhum item encontrado.")
+
+    def atualizar_registro(self):
+        """Função que atualiza um item da tabela"""
+        selected_item = self.treeview.focus()
+        if selected_item:
+            item_values = self.treeview.item(selected_item)
+            updated_values = simpledialog.askstring("Atualizar", "Digite os novos valores separados por vírgula:")
+            if updated_values:
+                updated_values = updated_values.split(',')
+                if len(updated_values) == 3:
+                    self.banco.atualizar_registro(rowid=item_values['text'], nome=updated_values[0], telefone=updated_values[1], email=updated_values[2])  
+                    self.treeview.item(selected_item, values=updated_values)
+                    messagebox.showinfo("Atualizar", "Item atualizado com sucesso.")
+                else:
+                    messagebox.showerror("Atualizar", "Erro: Por favor, insira todos os valores (Nome, Telefone e Email).")  
+        else:
+            messagebox.showerror("Atualizar", "Nenhum item selecionado.")        
 
 root = Tk()
 app = Janela(master=root)
